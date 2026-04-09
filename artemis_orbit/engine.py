@@ -17,31 +17,34 @@ def gerar_geometria_esferica(raio: float, centro_x: float = 0) -> Tuple[np.ndarr
 
 def calcular_trajetoria_artemis() -> Dict[str, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """
-    Simula os vetores de posição para as três fases da missão Artemis II.
-    Retorna um dicionário com as coordenadas de cada segmento.
+    Simula os vetores de posição formando um "8" real.
+    Garante o contorno por trás da Lua e o cruzamento da órbita.
     """
     dist = settings.DISTANCIA_TERRA_LUA_KM
     pts = settings.PONTOS_TRAJETORIA
     f_pts = settings.PONTOS_FLYBY
+    raio_passagem = 12000 # Distância do centro da Lua durante o estilingue
 
-    # 1. Trajetória de Ida (Saindo da Terra em direção à Lua)
+    # 1. Trajetória de Ida (Sobe e depois desce para atingir a Lua "por baixo")
     t_ida = np.linspace(0, 1, pts)
     x_ida = dist * t_ida
-    y_ida = 40000 * np.sin(np.pi * t_ida) # Curvatura simulada
-    z_ida = 8000 * t_ida
+    # O seno cria o arco, a subtração do raio_passagem faz ela mirar no "fundo" da Lua
+    y_ida = 60000 * np.sin(np.pi * t_ida) - raio_passagem * t_ida 
+    z_ida = 5000 * np.sin(np.pi * t_ida)
 
-    # 2. Flyby Lunar (Manobra de contorno atrás da Lua)
-    t_fly = np.linspace(0, np.pi, f_pts)
-    raio_passagem = 12000 # Distância da nave ao centro da Lua durante o contorno
-    x_fly = dist + raio_passagem * np.cos(t_fly - np.pi / 2)
-    y_fly = raio_passagem * np.sin(t_fly - np.pi / 2) + 40000
-    z_fly = 8000 + 4000 * np.sin(t_fly)
+    # 2. Flyby Lunar (Manobra Gravitacional POR TRÁS da Lua)
+    # O ângulo vai de -90 graus até +90 graus, passando pelo lado oculto
+    t_fly = np.linspace(-np.pi/2, np.pi/2, f_pts)
+    x_fly = dist + raio_passagem * np.cos(t_fly) # cos(0) = 1, joga a nave para TRÁS da Lua
+    y_fly = raio_passagem * np.sin(t_fly)
+    z_fly = np.zeros_like(t_fly) # Mantém Z zerado no contorno para estabilidade visual
 
-    # 3. Trajetória de Regresso (Regresso à atmosfera terrestre)
+    # 3. Trajetória de Regresso (Desce e cruza o eixo subindo de volta à Terra)
     t_volta = np.linspace(1, 0, pts)
     x_volta = dist * t_volta
-    y_volta = -25000 * np.sin(np.pi * t_volta) # Retorno por um ângulo diferente
-    z_volta = 8000 * t_volta
+    # Inverte o arco para formar a outra metade do "8"
+    y_volta = -60000 * np.sin(np.pi * t_volta) + raio_passagem * t_volta 
+    z_volta = -5000 * np.sin(np.pi * t_volta)
 
     return {
         "ida": (x_ida, y_ida, z_ida),
