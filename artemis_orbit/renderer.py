@@ -1,21 +1,21 @@
 """
 Módulo de visualização (renderer.py).
-Inclui texturas processuais e iluminação realista para a Terra e a Lua.
+Inclui texturas processuais, iluminação e a ANIMAÇÃO da nave Orion.
 """
 
 import matplotlib
-matplotlib.use('TkAgg') # Mantém a janela interativa
+matplotlib.use('TkAgg') # Necessário para a janela interativa rodar a animação
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import LightSource
 from matplotlib import cm
+from matplotlib.animation import FuncAnimation # <- Importamos o animador
 import numpy as np
 import settings
 import engine
 
 def _configurar_estetica_eixos(ax: Axes3D) -> None:
-    """Configurações de câmera, proporção e textos."""
-    ax.set_title('Trajetória Artemis II: Iluminação e Texturas Processuais', fontsize=14, pad=20, color='white')
+    ax.set_title('Trajetória Artemis II: Simulação de Voo Animada', fontsize=14, pad=20, color='white')
     ax.set_xlabel('Distância X (km)', color='gray')
     ax.set_ylabel('Desvio Y (km)', color='gray')
     ax.set_zlabel('Elevação Z (km)', color='gray')
@@ -26,48 +26,30 @@ def _configurar_estetica_eixos(ax: Axes3D) -> None:
     ax.set_zlim(-limit/8, limit/8)
 
     ax.view_init(elev=25, azim=-70)
-    # Define o fundo do próprio painel 3D como transparente/escuro
     ax.xaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
     ax.yaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
     ax.zaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
 
 def exibir_simulacao() -> None:
-    """Orquestra a criação do gráfico."""
     plt.style.use(settings.ESTILO_GRAFICO)
     fig = plt.figure(figsize=(15, 9))
     ax = fig.add_subplot(111, projection='3d')
-
-    # --- Configurar o Sol (Fonte de Luz) ---
-    # Colocamos a luz vindo da direção do eixo X (azdeg=180) para iluminar a frente da Terra
     ls = LightSource(azdeg=180, altdeg=15)
 
-    # --- 1. A Terra (Textura de Continentes e Oceanos) ---
+    # --- 1. Terra e Lua ---
     x_t, y_t, z_t, u_t, v_t = engine.gerar_geometria_esferica(settings.RAIO_TERRA_KM)
-    
-    # Gerar topografia matemática misturando ondas (cria um padrão de "continentes")
     topo_terra = np.sin(4 * u_t) * np.cos(5 * v_t) + 0.5 * np.sin(8 * u_t) * np.sin(6 * v_t)
-    # Normaliza os valores para estarem entre 0 e 1
     topo_terra = (topo_terra - topo_terra.min()) / (topo_terra.max() - topo_terra.min())
-    
-    # Aplica o mapa de cores 'ocean' e mistura com as sombras calculadas pela luz
     cor_terra = ls.shade(topo_terra, cmap=cm.ocean, blend_mode='overlay', vert_exag=0.5)
-    
-    # Desenha a Terra com os píxeis coloridos e iluminação, desativando o shade padrão
     ax.plot_surface(x_t, y_t, z_t, facecolors=cor_terra, rstride=1, cstride=1, shade=False)
 
-    # --- 2. A Lua (Textura de Crateras) ---
     x_l, y_l, z_l, u_l, v_l = engine.gerar_geometria_esferica(settings.RAIO_LUA_KM, settings.DISTANCIA_TERRA_LUA_KM)
-    
-    # Topografia lunar: ondas de frequência muito alta para parecerem buracos/crateras
     topo_lua = np.sin(12 * u_l) * np.cos(12 * v_l) + 0.3 * np.sin(25 * u_l) * np.cos(25 * v_l)
     topo_lua = (topo_lua - topo_lua.min()) / (topo_lua.max() - topo_lua.min())
-    
-    # Aplica o mapa de cores cinzento e sombras
     cor_lua = ls.shade(topo_lua, cmap=cm.bone, blend_mode='overlay', vert_exag=1.0)
-    
     ax.plot_surface(x_l, y_l, z_l, facecolors=cor_lua, rstride=1, cstride=1, shade=False)
 
-    # --- 3. Plotagem das Trajetórias ---
+    # --- 2. Desenhar as Linhas da Trajetória ---
     caminhos = engine.calcular_trajetoria_artemis()
     
     ax.plot(*caminhos["orbita"], color='magenta', lw=1.5, label='Órbita de Fasiamento')
@@ -75,12 +57,37 @@ def exibir_simulacao() -> None:
     ax.plot(*caminhos["flyby"], color=settings.COR_FLYBY, lw=2, ls='--', label='Flyby Lunar')
     ax.plot(*caminhos["volta"], color=settings.COR_VOLTA, lw=2, label='Regresso (Inbound)')
 
-    # Textos de identificação deslocados um pouco para não ficarem "dentro" do planeta
+    # --- 3. Preparar a Animação da Nave ---
+    # Juntamos todas as coordenadas X, Y e Z num trilho único e contínuo
+    x_total = np.concatenate([caminhos["orbita"][0], caminhos["ida"][0], caminhos["flyby"][0], caminhos["volta"][0]])
+    y_total = np.concatenate([caminhos["orbita"][1], caminhos["ida"][1], caminhos["flyby"][1], caminhos["volta"][1]])
+    z_total = np.concatenate([caminhos["orbita"][2], caminhos["ida"][2], caminhos["flyby"][2], caminhos["volta"][2]])
+
+    # Criamos o objeto "nave" (um ponto vermelho grande). Ele começa vazio.
+    nave, = ax.plot([], [], [], marker='o', color='red', markersize=8, label='Nave Orion')
+
+    # Função que será chamada em loop para mover a nave
+    def atualizar_quadro(frame):
+        # Define a nova posição X e Y
+        nave.set_data([x_total[frame]], [y_total[frame]])
+        # Define a nova posição Z (no Matplotlib 3D o Z é separado)
+        nave.set_3d_properties([z_total[frame]])
+        return nave,
+
+    # Textos e Eixos
     ax.text(0, 0, settings.RAIO_TERRA_KM * 2.5, "TERRA", color='white', fontweight='bold', ha='center')
     ax.text(settings.DISTANCIA_TERRA_LUA_KM, 0, settings.RAIO_LUA_KM * 3.5, "LUA", color='white', fontweight='bold', ha='center')
-
     _configurar_estetica_eixos(ax)
     ax.legend(loc='upper right', frameon=False, fontsize=10)
 
+    print("Iniciando simulação animada... Pressione Ctrl+C no terminal para parar.")
+    
+    # Executa a animação! 
+    # frames=len(x_total) diz quantos passos a nave vai dar.
+    # interval=20 é a velocidade (20 milissegundos por quadro).
+    passo = 10
+    quadros_acelerados = range(0, len(x_total), passo)
+    animacao = FuncAnimation(fig, atualizar_quadro, frames=quadros_acelerados, interval=20, blit=False)
+
     plt.tight_layout()
-    plt.show()
+    plt.show() # A janela vai abrir e a nave vai começar a voar!
