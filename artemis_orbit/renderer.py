@@ -36,7 +36,6 @@ def exibir_simulacao() -> None:
     ax = fig.add_subplot(111, projection='3d')
     ls = LightSource(azdeg=180, altdeg=15)
 
-    # --- 1. Terra e Lua ---
     x_t, y_t, z_t, u_t, v_t = engine.gerar_geometria_esferica(settings.RAIO_TERRA_KM)
     topo_terra = np.sin(4 * u_t) * np.cos(5 * v_t) + 0.5 * np.sin(8 * u_t) * np.sin(6 * v_t)
     topo_terra = (topo_terra - topo_terra.min()) / (topo_terra.max() - topo_terra.min())
@@ -49,7 +48,6 @@ def exibir_simulacao() -> None:
     cor_lua = ls.shade(topo_lua, cmap=cm.bone, blend_mode='overlay', vert_exag=1.0)
     ax.plot_surface(x_l, y_l, z_l, facecolors=cor_lua, rstride=1, cstride=1, shade=False)
 
-    # --- 2. Desenhar as Linhas da Trajetória ---
     caminhos = engine.calcular_trajetoria_artemis()
     
     ax.plot(*caminhos["orbita"], color='magenta', lw=1.5, label='Órbita de Fasiamento')
@@ -57,16 +55,12 @@ def exibir_simulacao() -> None:
     ax.plot(*caminhos["flyby"], color=settings.COR_FLYBY, lw=2, ls='--', label='Flyby Lunar')
     ax.plot(*caminhos["volta"], color=settings.COR_VOLTA, lw=2, label='Regresso (Inbound)')
 
-    # --- 3. Preparar a Animação da Nave ---
-    # Juntamos todas as coordenadas X, Y e Z num trilho único e contínuo
     x_total = np.concatenate([caminhos["orbita"][0], caminhos["ida"][0], caminhos["flyby"][0], caminhos["volta"][0]])
     y_total = np.concatenate([caminhos["orbita"][1], caminhos["ida"][1], caminhos["flyby"][1], caminhos["volta"][1]])
     z_total = np.concatenate([caminhos["orbita"][2], caminhos["ida"][2], caminhos["flyby"][2], caminhos["volta"][2]])
 
-    # Criamos o objeto "nave" (um ponto vermelho grande). Ele começa vazio.
     nave, = ax.plot([], [], [], marker='o', color='red', markersize=8, label='Nave Orion')
 
-    # Função que será chamada em loop para mover a nave
     def atualizar_quadro(frame):
         # Define a nova posição X e Y
         nave.set_data([x_total[frame]], [y_total[frame]])
@@ -74,7 +68,6 @@ def exibir_simulacao() -> None:
         nave.set_3d_properties([z_total[frame]])
         return nave,
 
-    # Textos e Eixos
     ax.text(0, 0, settings.RAIO_TERRA_KM * 2.5, "TERRA", color='white', fontweight='bold', ha='center')
     ax.text(settings.DISTANCIA_TERRA_LUA_KM, 0, settings.RAIO_LUA_KM * 3.5, "LUA", color='white', fontweight='bold', ha='center')
     _configurar_estetica_eixos(ax)
@@ -82,12 +75,9 @@ def exibir_simulacao() -> None:
 
     print("Iniciando simulação animada... Pressione Ctrl+C no terminal para parar.")
     
-    # Executa a animação! 
-    # frames=len(x_total) diz quantos passos a nave vai dar.
-    # interval=20 é a velocidade (20 milissegundos por quadro).
     passo = 10
     quadros_acelerados = range(0, len(x_total), passo)
     animacao = FuncAnimation(fig, atualizar_quadro, frames=quadros_acelerados, interval=20, blit=False)
 
     plt.tight_layout()
-    plt.show() # A janela vai abrir e a nave vai começar a voar!
+    plt.show() 
