@@ -21,10 +21,10 @@ Este projeto requer o **Python 3** e duas bibliotecas principais: `numpy` e `mat
 1. **Instalar as dependências do Python:**
    No seu terminal, execute:
    ```bash
-   pip install numpy matplotlib´´´
+   pip install numpy matplotlib
 
 Requisito para Janela Interativa (Linux / WSL):
 Para que a janela 3D interativa abra corretamente, o Matplotlib utiliza o backend TkAgg. Se estiver a usar Linux ou o WSL no Windows, poderá ter de instalar o pacote de sistema do Tkinter:
 ```bash
 sudo apt-get update
-sudo apt-get install python3-tk´´´
+sudo apt-get install python3-tk
