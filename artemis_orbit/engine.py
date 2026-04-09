@@ -8,13 +8,17 @@ import numpy as np
 from typing import Tuple, Dict
 import settings
 
-def gerar_geometria_esferica(raio: float, centro_x: float = 0) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Calcula as coordenadas X, Y e Z para a superfície de uma esfera."""
-    u, v = np.mgrid[0:2 * np.pi:30j, 0:np.pi:15j]
+def gerar_geometria_esferica(raio: float, centro_x: float = 0) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Calcula as coordenadas X, Y, Z para uma esfera e devolve também as matrizes angulares U e V
+    para aplicação de texturas matemáticas no renderizador. Resolução aumentada.
+    """
+    # Aumentamos a resolução de 30/15 para 60/30 para a textura ficar mais definida
+    u, v = np.mgrid[0:2 * np.pi:60j, 0:np.pi:30j]
     x = raio * np.cos(u) * np.sin(v) + centro_x
     y = raio * np.sin(u) * np.sin(v)
     z = raio * np.cos(v)
-    return x, y, z
+    return x, y, z, u, v
 
 def _curva_bezier_3d(p0, p1, p2, p3, num_pts):
     """Gera uma curva suave entre pontos usando a fórmula de Bézier Cúbica."""
